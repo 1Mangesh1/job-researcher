@@ -7,4 +7,9 @@ services:
       - .env
     environment:
       - UVICORN_RELOAD=false
+    volumes:
+      - output:/app/output
     restart: unless-stopped
+
+volumes:
+  output:
