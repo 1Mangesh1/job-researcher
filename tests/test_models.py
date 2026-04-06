@@ -14,7 +14,8 @@ def test_settings_loads_from_env(monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
     monkeypatch.setenv("CF_ACCOUNT_ID", "test-account")
     monkeypatch.setenv("CF_API_TOKEN", "test-token")
-    settings = Settings()
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    settings = Settings(_env_file=None)
     assert settings.gemini_api_key == "test-key"
     assert settings.cf_account_id == "test-account"
     assert settings.cf_api_token == "test-token"
