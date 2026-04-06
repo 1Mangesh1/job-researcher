@@ -1,5 +1,7 @@
 import re
 import time
+import uuid
+from dataclasses import dataclass, field
 
 import numpy as np
 
@@ -7,8 +9,12 @@ from job_researcher.config import get_settings
 from job_researcher.models import (
     AnalysisMetadata,
     AnalyzeResponse,
+    JobDescription,
     ResumeMatch,
     ResumeStatus,
+    TailorQuestion,
+    TailorStartResponse,
+    TailoredResume,
 )
 from job_researcher.services.embeddings import EmbeddingsService
 from job_researcher.services.gemini import GeminiService
@@ -20,7 +26,17 @@ from job_researcher.steps.resume_comparator import (
     chunk_text,
     compare_resume,
 )
+from job_researcher.steps.question_generator import generate_questions
+from job_researcher.steps.resume_tailor import tailor_resume
+from job_researcher.steps.latex_resume import render_latex, compile_pdf
 from job_researcher.steps.verdict_generator import generate_verdict
+
+
+@dataclass
+class TailorSession:
+    jd: JobDescription
+    questions: list[TailorQuestion]
+    resume_text: str
 
 
 class Pipeline:
@@ -38,8 +54,11 @@ class Pipeline:
         self.resume_loaded: bool = False
         self.resume_last_updated: str | None = None
         self._resume_cache: str | None = None
+        self.resume_text: str = ""
+        self._tailor_sessions: dict[str, TailorSession] = {}
 
     async def load_resume(self, text: str) -> ResumeStatus:
+        self.resume_text = text
         self.resume_chunks = chunk_text(text)
         raw_embeddings = await self.embeddings.embed(self.resume_chunks)
         self.resume_embeddings = [np.array(e) for e in raw_embeddings]
@@ -111,3 +130,36 @@ class Pipeline:
                 estimated_cost_usd=self.gemini.estimated_cost(),
             ),
         )
+
+    async def tailor_start(self, job_url: str) -> TailorStartResponse:
+        raw_text = await fetch_job_page(job_url)
+        jd = await parse_job_description(self.gemini, raw_text)
+
+        questions = await generate_questions(self.gemini, jd, self.resume_text)
+
+        session_id = str(uuid.uuid4())
+        self._tailor_sessions[session_id] = TailorSession(
+            jd=jd,
+            questions=questions,
+            resume_text=self.resume_text,
+        )
+
+        return TailorStartResponse(
+            session_id=session_id,
+            questions=questions,
+            job_summary=f"{jd.title} at {jd.company}",
+        )
+
+    async def tailor_generate(self, session_id: str, answers: dict[str, str]) -> bytes | None:
+        session = self._tailor_sessions[session_id]  # Raises KeyError if not found
+
+        tailored = await tailor_resume(
+            self.gemini, session.jd, session.resume_text, answers
+        )
+
+        latex = render_latex(tailored)
+        pdf_bytes = compile_pdf(latex)
+
+        del self._tailor_sessions[session_id]
+
+        return pdf_bytes
