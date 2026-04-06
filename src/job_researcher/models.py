@@ -38,7 +38,7 @@ class GitHubSummary(BaseModel):
 
 class ResumeMatch(BaseModel):
     overall_similarity: float
-    top_matches: list[dict[str, float]]
+    top_matches: list[dict[str, str | float]]
 
 
 class MatchTier(StrEnum):
