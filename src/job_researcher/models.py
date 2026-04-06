@@ -84,3 +84,65 @@ class ResumeStatus(BaseModel):
     resume_loaded: bool
     chunks: int
     last_updated: str | None
+
+
+class ContactInfo(BaseModel):
+    email: str = ""
+    phone: str = ""
+    location: str = ""
+    linkedin: str = ""
+    github: str = ""
+    website: str = ""
+
+
+class TailorQuestion(BaseModel):
+    id: str
+    question: str
+    context: str
+
+
+class TailorStartRequest(BaseModel):
+    job_url: HttpUrl
+
+
+class TailorStartResponse(BaseModel):
+    session_id: str
+    questions: list[TailorQuestion]
+    job_summary: str
+
+
+class TailorGenerateRequest(BaseModel):
+    session_id: str
+    answers: dict[str, str]
+
+
+class ExperienceEntry(BaseModel):
+    title: str
+    company: str
+    location: str
+    dates: str
+    bullets: list[str]
+
+
+class EducationEntry(BaseModel):
+    degree: str
+    institution: str
+    dates: str
+    details: str = ""
+
+
+class ProjectEntry(BaseModel):
+    name: str
+    description: str
+    tech_stack: str
+    bullets: list[str]
+
+
+class TailoredResume(BaseModel):
+    name: str
+    contact: ContactInfo
+    summary: str
+    experience: list[ExperienceEntry]
+    skills: list[str]
+    education: list[EducationEntry]
+    projects: list[ProjectEntry] = []
