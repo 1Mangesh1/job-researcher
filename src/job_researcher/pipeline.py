@@ -37,6 +37,7 @@ class Pipeline:
         self.resume_embeddings: list[np.ndarray] = []
         self.resume_loaded: bool = False
         self.resume_last_updated: str | None = None
+        self._resume_cache: str | None = None
 
     async def load_resume(self, text: str) -> ResumeStatus:
         self.resume_chunks = chunk_text(text)
@@ -44,6 +45,16 @@ class Pipeline:
         self.resume_embeddings = [np.array(e) for e in raw_embeddings]
         self.resume_loaded = True
         self.resume_last_updated = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+        # Cache resume text for Gemini (saves tokens on repeated analyses)
+        try:
+            self._resume_cache = await self.gemini.create_cache(
+                contents=[f"Candidate Resume:\n\n{text}"],
+                display_name="resume-cache",
+            )
+        except Exception:
+            # Caching is optional optimization — continue without it
+            self._resume_cache = None
 
         return self.get_resume_status()
 

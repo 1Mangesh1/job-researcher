@@ -71,3 +71,16 @@ class GeminiService:
         input_cost = (self.total_input_tokens / 1_000_000) * 0.15
         output_cost = (self.total_output_tokens / 1_000_000) * 0.60
         return round(input_cost + output_cost, 6)
+
+    async def create_cache(
+        self, contents: list[str], display_name: str, ttl: str = "3600s"
+    ) -> str:
+        cache = self.client.caches.create(
+            model=self.model,
+            contents=contents,
+            config=types.CreateCachedContentConfig(
+                display_name=display_name,
+                ttl=ttl,
+            ),
+        )
+        return cache.name
