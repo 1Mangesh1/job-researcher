@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, UploadFile
+from fastapi.responses import Response
 from pypdf import PdfReader
 import io
 
@@ -6,6 +7,9 @@ from job_researcher.models import (
     AnalyzeRequest,
     AnalyzeResponse,
     ResumeStatus,
+    TailorStartRequest,
+    TailorStartResponse,
+    TailorGenerateRequest,
 )
 from job_researcher.pipeline import Pipeline
 
@@ -60,3 +64,38 @@ async def analyze(request: AnalyzeRequest) -> AnalyzeResponse:
         )
 
     return await pipeline.analyze(str(request.job_url))
+
+
+@app.post("/resume/tailor")
+async def tailor_start(request: TailorStartRequest) -> TailorStartResponse:
+    pipeline = get_pipeline()
+
+    if not pipeline.resume_loaded:
+        raise HTTPException(
+            status_code=400,
+            detail="No resume uploaded. POST /resume/upload first.",
+        )
+
+    return await pipeline.tailor_start(str(request.job_url))
+
+
+@app.post("/resume/tailor/generate")
+async def tailor_generate(request: TailorGenerateRequest) -> Response:
+    pipeline = get_pipeline()
+
+    try:
+        pdf_bytes = await pipeline.tailor_generate(request.session_id, request.answers)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Session not found or expired.")
+
+    if pdf_bytes is None:
+        raise HTTPException(
+            status_code=500,
+            detail="PDF compilation failed. Ensure pdflatex is installed.",
+        )
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": "attachment; filename=tailored_resume.pdf"},
+    )
