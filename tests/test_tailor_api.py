@@ -77,15 +77,15 @@ async def test_tailor_generate_success(client):
 
 
 @pytest.mark.asyncio
-async def test_tailor_generate_latex_failure(client):
+async def test_tailor_generate_returns_pdf(client):
     with patch("job_researcher.main.get_pipeline") as mock_get:
         mock_pipeline = AsyncMock()
-        mock_pipeline.tailor_generate.return_value = None
+        mock_pipeline.tailor_generate.return_value = b"%PDF-1.4 test content"
         mock_get.return_value = mock_pipeline
 
         response = await client.post(
             "/resume/tailor/generate",
             json={"session_id": "test-session", "answers": {"q1": "Yes"}},
         )
-        assert response.status_code == 500
-        assert "pdf" in response.json()["detail"].lower()
+        assert response.status_code == 200
+        assert response.content[:5] == b"%PDF-"

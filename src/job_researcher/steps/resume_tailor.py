@@ -1,6 +1,6 @@
 import json
 
-from job_researcher.models import JobDescription, TailoredResume
+from job_researcher.models import JobDescription, Resume
 from job_researcher.services.gemini import GeminiService
 
 SYSTEM_PROMPT = """You are an expert resume writer. Given a candidate's original resume, a target job description,
@@ -12,9 +12,10 @@ Rules:
 - Incorporate new information from the candidate's answers naturally.
 - Front-load the most relevant skills and experience.
 - Use strong action verbs and quantify achievements where possible.
-- Keep bullet points concise (1-2 lines each).
-- Tailor the summary to speak directly to this role's requirements.
+- Keep bullet points concise (1-2 lines each), max 7 per role.
+- Tailor the summary to speak directly to this role's requirements (max 500 chars).
 - Order skills by relevance to the JD (most relevant first).
+- Group skills by category (e.g. Languages, Frameworks, Cloud).
 
 Return valid JSON matching the requested schema."""
 
@@ -33,7 +34,13 @@ Tech stack: {tech_stack}
 
 ## Instructions
 Rewrite this resume tailored for the target job. Incorporate the candidate's answers as additional experience/context.
-Structure the output as JSON with fields: name, contact (email, phone, location, linkedin, github, website), summary, experience (list of: title, company, location, dates, bullets), skills (list of strings), education (list of: degree, institution, dates, details), projects (list of: name, description, tech_stack, bullets).
+Return JSON with fields:
+- name, email, phone, linkedin, github, website (optional)
+- summary (max 500 chars)
+- skills: object mapping category to comma-separated skills (e.g. {{"Languages": "Python, Go", "Cloud": "AWS, GCP"}})
+- experience: list of {{title, company, location, start_date, end_date, bullets}} (1-7 bullets each)
+- projects: list of {{name, tech_stack, bullets, link (optional)}}
+- education: list of {{degree, institution, dates, details (optional)}}
 
 Return JSON only."""
 
@@ -43,7 +50,7 @@ async def tailor_resume(
     jd: JobDescription,
     resume_text: str,
     answers: dict[str, str],
-) -> TailoredResume:
+) -> Resume:
     answers_text = "\n".join(
         f"Q: {qid}\nA: {answer}" for qid, answer in answers.items()
     )
@@ -61,9 +68,9 @@ async def tailor_resume(
     response = await gemini.generate(
         prompt,
         system_instruction=SYSTEM_PROMPT,
-        response_schema=TailoredResume,
+        response_schema=Resume,
         thinking_budget=10240,
     )
 
     data = json.loads(response)
-    return TailoredResume(**data)
+    return Resume(**data)

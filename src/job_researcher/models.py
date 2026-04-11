@@ -1,6 +1,6 @@
 from enum import StrEnum
 
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel, Field, HttpUrl
 
 
 class AnalyzeRequest(BaseModel):
@@ -86,13 +86,70 @@ class ResumeStatus(BaseModel):
     last_updated: str | None
 
 
-class ContactInfo(BaseModel):
-    email: str = ""
-    phone: str = ""
-    location: str = ""
-    linkedin: str = ""
-    github: str = ""
-    website: str = ""
+class EducationEntry(BaseModel):
+    degree: str
+    institution: str
+    dates: str
+    details: str = ""
+
+
+class Experience(BaseModel):
+    title: str
+    company: str
+    location: str
+    start_date: str
+    end_date: str
+    bullets: list[str] = Field(min_length=1, max_length=7)
+
+
+class Project(BaseModel):
+    name: str
+    tech_stack: str
+    bullets: list[str]
+    link: str | None = None
+
+
+class Resume(BaseModel):
+    name: str
+    email: str
+    phone: str
+    linkedin: str
+    github: str
+    website: str | None = None
+    summary: str = Field(max_length=500)
+    skills: dict[str, str]
+    experience: list[Experience]
+    projects: list[Project]
+    education: list[EducationEntry]
+
+
+class ATSReport(BaseModel):
+    score: int
+    matched_keywords: list[str]
+    missing_keywords: list[str]
+    suggestions: list[str]
+
+
+class GenerateRequest(BaseModel):
+    raw_text: str | None = None
+    job_url: HttpUrl | None = None
+    template_id: str = "minimal"
+
+
+class GenerateResponse(BaseModel):
+    resume_data: Resume
+    ats_report: ATSReport | None = None
+    pdf_base64: str
+    template_id: str
+
+
+class RenderRequest(BaseModel):
+    resume_data: Resume
+    template_id: str = "minimal"
+
+
+class RenderResponse(BaseModel):
+    pdf_base64: str
 
 
 class TailorQuestion(BaseModel):
@@ -114,35 +171,4 @@ class TailorStartResponse(BaseModel):
 class TailorGenerateRequest(BaseModel):
     session_id: str
     answers: dict[str, str]
-
-
-class ExperienceEntry(BaseModel):
-    title: str
-    company: str
-    location: str
-    dates: str
-    bullets: list[str]
-
-
-class EducationEntry(BaseModel):
-    degree: str
-    institution: str
-    dates: str
-    details: str = ""
-
-
-class ProjectEntry(BaseModel):
-    name: str
-    description: str
-    tech_stack: str
-    bullets: list[str]
-
-
-class TailoredResume(BaseModel):
-    name: str
-    contact: ContactInfo
-    summary: str
-    experience: list[ExperienceEntry]
-    skills: list[str]
-    education: list[EducationEntry]
-    projects: list[ProjectEntry] = []
+    template_id: str = "minimal"

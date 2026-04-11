@@ -3,11 +3,10 @@ import pytest
 from unittest.mock import AsyncMock
 
 from job_researcher.models import (
-    ContactInfo,
     EducationEntry,
-    ExperienceEntry,
+    Experience,
     JobDescription,
-    TailoredResume,
+    Resume,
 )
 from job_researcher.steps.resume_tailor import tailor_resume
 
@@ -47,17 +46,24 @@ async def test_tailor_resume(sample_jd):
     mock_gemini = AsyncMock()
     mock_gemini.generate.return_value = json.dumps({
         "name": "John Doe",
-        "contact": {
-            "email": "john@example.com",
-            "phone": "555-0100",
-        },
+        "email": "john@example.com",
+        "phone": "555-0100",
+        "linkedin": "linkedin.com/in/johndoe",
+        "github": "github.com/johndoe",
         "summary": "Backend engineer with 5 years Python experience and hands-on Kubernetes and GraphQL exposure.",
+        "skills": {
+            "Languages": "Python, SQL",
+            "Frameworks": "FastAPI, Django, GraphQL",
+            "Infrastructure": "Kubernetes, Docker, Ansible",
+            "Databases": "PostgreSQL, Redis",
+        },
         "experience": [
             {
                 "title": "Software Engineer",
                 "company": "TechCo",
                 "location": "Remote",
-                "dates": "2021 -- Present",
+                "start_date": "2021",
+                "end_date": "Present",
                 "bullets": [
                     "Built and maintained REST APIs serving 10,000+ requests/second using Python and FastAPI",
                     "Deployed microservices to Google Kubernetes Engine (GKE) using Helm charts",
@@ -66,12 +72,11 @@ async def test_tailor_resume(sample_jd):
                 ],
             }
         ],
-        "skills": ["Python", "FastAPI", "Django", "Kubernetes", "GraphQL", "PostgreSQL", "Redis", "Docker", "Ansible"],
         "education": [
             {
                 "degree": "BS Computer Science",
                 "institution": "MIT",
-                "dates": "2015 -- 2019",
+                "dates": "2015-2019",
             }
         ],
         "projects": [],
@@ -81,9 +86,9 @@ async def test_tailor_resume(sample_jd):
         mock_gemini, sample_jd, SAMPLE_RESUME_TEXT, SAMPLE_ANSWERS
     )
 
-    assert isinstance(result, TailoredResume)
+    assert isinstance(result, Resume)
     assert result.name == "John Doe"
-    assert "Kubernetes" in result.skills
+    assert "Kubernetes" in result.skills.get("Infrastructure", "")
     assert len(result.experience) >= 1
     mock_gemini.generate.assert_called_once()
 
@@ -96,11 +101,25 @@ async def test_tailor_resume_includes_answers_in_prompt(sample_jd):
     mock_gemini = AsyncMock()
     mock_gemini.generate.return_value = json.dumps({
         "name": "John Doe",
-        "contact": {},
-        "summary": "...",
-        "experience": [],
-        "skills": [],
-        "education": [],
+        "email": "john@example.com",
+        "phone": "",
+        "linkedin": "",
+        "github": "",
+        "summary": "Engineer.",
+        "skills": {"Languages": "Python"},
+        "experience": [
+            {
+                "title": "SWE",
+                "company": "Co",
+                "location": "Remote",
+                "start_date": "2021",
+                "end_date": "Present",
+                "bullets": ["Built APIs"],
+            }
+        ],
+        "education": [
+            {"degree": "BS", "institution": "MIT", "dates": "2019"},
+        ],
         "projects": [],
     })
 

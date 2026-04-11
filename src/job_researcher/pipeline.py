@@ -10,11 +10,11 @@ from job_researcher.models import (
     AnalysisMetadata,
     AnalyzeResponse,
     JobDescription,
+    Resume,
     ResumeMatch,
     ResumeStatus,
     TailorQuestion,
     TailorStartResponse,
-    TailoredResume,
 )
 from job_researcher.services.embeddings import EmbeddingsService
 from job_researcher.services.gemini import GeminiService
@@ -28,7 +28,7 @@ from job_researcher.steps.resume_comparator import (
 )
 from job_researcher.steps.question_generator import generate_questions
 from job_researcher.steps.resume_tailor import tailor_resume
-from job_researcher.steps.latex_resume import render_latex, compile_pdf
+from job_researcher.templates.minimal import render_minimal
 from job_researcher.steps.verdict_generator import generate_verdict
 
 
@@ -150,15 +150,14 @@ class Pipeline:
             job_summary=f"{jd.title} at {jd.company}",
         )
 
-    async def tailor_generate(self, session_id: str, answers: dict[str, str]) -> bytes | None:
+    async def tailor_generate(self, session_id: str, answers: dict[str, str]) -> bytes:
         session = self._tailor_sessions[session_id]  # Raises KeyError if not found
 
         tailored = await tailor_resume(
             self.gemini, session.jd, session.resume_text, answers
         )
 
-        latex = render_latex(tailored)
-        pdf_bytes = compile_pdf(latex)
+        pdf_bytes = render_minimal(tailored)
 
         del self._tailor_sessions[session_id]
 

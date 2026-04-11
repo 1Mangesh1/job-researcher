@@ -35,18 +35,22 @@ QUESTIONS = [
 
 TAILORED_RESUME = {
     "name": "John Doe",
-    "contact": {"email": "john@example.com"},
+    "email": "john@example.com",
+    "phone": "",
+    "linkedin": "",
+    "github": "",
     "summary": "Backend engineer with Python and K8s.",
+    "skills": {"Languages": "Python", "Infrastructure": "Kubernetes"},
     "experience": [
         {
             "title": "SWE",
             "company": "Co",
             "location": "Remote",
-            "dates": "2021 -- Present",
+            "start_date": "2021",
+            "end_date": "Present",
             "bullets": ["Built APIs", "Deployed to K8s"],
         }
     ],
-    "skills": ["Python", "Kubernetes"],
     "education": [
         {"degree": "BS CS", "institution": "MIT", "dates": "2019"},
     ],
@@ -109,11 +113,11 @@ async def test_tailor_flow_integration(monkeypatch):
     assert result.session_id
     assert len(result.questions) == 1
 
-    # Step 2: Generate tailored resume
-    pdf_or_none = await pipeline.tailor_generate(
+    # Step 2: Generate tailored resume (ReportLab always succeeds)
+    pdf_bytes = await pipeline.tailor_generate(
         result.session_id,
         {"q1": "I deployed to GKE with Helm charts"},
     )
 
-    # PDF compilation may fail without texlive -- that's OK in CI
-    assert pdf_or_none is None or isinstance(pdf_or_none, bytes)
+    assert isinstance(pdf_bytes, bytes)
+    assert pdf_bytes[:5] == b"%PDF-"

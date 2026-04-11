@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from pypdf import PdfReader
 import io
@@ -14,6 +15,13 @@ from job_researcher.models import (
 from job_researcher.pipeline import Pipeline
 
 app = FastAPI(title="Job Researcher", version="0.1.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 _pipeline: Pipeline | None = None
 
@@ -88,14 +96,189 @@ async def tailor_generate(request: TailorGenerateRequest) -> Response:
     except KeyError:
         raise HTTPException(status_code=404, detail="Session not found or expired.")
 
-    if pdf_bytes is None:
-        raise HTTPException(
-            status_code=500,
-            detail="PDF compilation failed. Ensure pdflatex is installed.",
-        )
-
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
         headers={"Content-Disposition": "attachment; filename=tailored_resume.pdf"},
     )
+
+
+# --- Frontend-compatible endpoints ---
+# These match the API contract of the jd-based-resume-maker frontend (frontend/docs/app.js)
+
+import json
+import re
+
+
+def _extract_json(raw: str) -> dict | list:
+    """Extract JSON from a response that may contain markdown fences or extra text."""
+    if not raw or not raw.strip():
+        raise ValueError("Empty response from AI")
+    s = raw.strip()
+    # Try direct parse
+    try:
+        return json.loads(s)
+    except json.JSONDecodeError:
+        pass
+    # Try extracting from markdown fences
+    fenced = re.search(r"```(?:json)?\s*([\s\S]*?)```", s)
+    if fenced:
+        return json.loads(fenced.group(1).strip())
+    # Try finding first { ... } or [ ... ]
+    match = re.search(r"(\{[\s\S]*\}|\[[\s\S]*\])", s)
+    if match:
+        return json.loads(match.group(1))
+    raise ValueError(f"Could not extract JSON from response: {s[:200]}")
+
+
+@app.post("/api/parse-resume")
+async def api_parse_resume(body: dict):
+    """Parse resume text into structured profile using Gemini."""
+    pipeline = get_pipeline()
+    text = body.get("text", "")
+
+    if not text or len(text) < 20:
+        raise HTTPException(status_code=400, detail="Resume text too short or missing.")
+
+    response = await pipeline.gemini.generate(
+        f"""Parse this resume into structured JSON.
+
+RESUME:
+{text[:8000]}
+
+Return JSON:
+{{
+  "name": "", "title": "", "email": "", "phone": "", "location": "",
+  "summary": "",
+  "skills": ["every skill mentioned"],
+  "skillsText": "Categorized skills preserving original format",
+  "experience": [{{"company": "", "role": "", "startDate": "", "endDate": "", "bullets": []}}],
+  "projects": [{{"name": "", "tech": "", "bullets": [], "link": ""}}],
+  "education": [{{"institution": "", "degree": "", "year": "", "score": ""}}],
+  "certifications": [],
+  "links": [{{"label": "", "url": ""}}]
+}}
+
+Extract EVERY detail. Copy bullets VERBATIM. Return JSON only.""",
+        system_instruction="You are a resume parser. Respond ONLY with valid JSON, no markdown fences.",
+    )
+
+    try:
+        data = _extract_json(response)
+    except (json.JSONDecodeError, ValueError) as e:
+        raise HTTPException(status_code=500, detail=f"AI parsing failed: {e}")
+    return {"profile": data}
+
+
+@app.post("/api/analyze")
+async def api_analyze_jd(body: dict):
+    """Analyze a JD against candidate profile, return gaps."""
+    pipeline = get_pipeline()
+
+    jd_text = body.get("text", "")
+    url = body.get("url", "")
+    profile = body.get("profile", {})
+
+    if url:
+        from job_researcher.steps.jd_fetcher import fetch_job_page
+        jd_text = await fetch_job_page(url)
+
+    if not jd_text or len(jd_text) < 30:
+        raise HTTPException(status_code=400, detail="Provide a URL or paste the JD text.")
+
+    profile_str = json.dumps(profile)
+
+    response = await pipeline.gemini.generate(
+        f"""Analyze this job description against the candidate profile.
+
+JOB DESCRIPTION:
+{jd_text}
+
+CANDIDATE PROFILE:
+{profile_str}
+
+Return JSON:
+{{
+  "jobTitle": "extracted job title",
+  "company": "extracted company name",
+  "keyRequirements": ["top 5-8 requirements"],
+  "gaps": [
+    {{
+      "id": "gap_1",
+      "skill": "skill name",
+      "question": "Friendly question asking if they have this experience"
+    }}
+  ]
+}}
+
+Rules:
+- Identify 3-5 skills/requirements NOT clearly in the profile
+- Skip requirements the profile clearly covers
+- Be specific and conversational in questions
+- If no gaps, return empty gaps array""",
+        system_instruction="You are a career analyst. Respond ONLY with valid JSON, no markdown fences.",
+    )
+
+    try:
+        analysis = _extract_json(response)
+    except (json.JSONDecodeError, ValueError) as e:
+        raise HTTPException(status_code=500, detail=f"AI parsing failed: {e}")
+    return {
+        "jdText": jd_text,
+        "jobTitle": analysis.get("jobTitle", "Position"),
+        "company": analysis.get("company", "Company"),
+        "keyRequirements": analysis.get("keyRequirements", []),
+        "gaps": analysis.get("gaps", []),
+    }
+
+
+@app.post("/api/tailor")
+async def api_tailor_resume(body: dict):
+    """Tailor resume for a JD using Gemini."""
+    pipeline = get_pipeline()
+
+    profile = body.get("profile")
+    jd_text = body.get("jdText", "")
+    answers = body.get("answers", {})
+    intensity = min(5, max(1, body.get("intensity", 3)))
+
+    if not profile or not jd_text:
+        raise HTTPException(status_code=400, detail="profile and jdText are required.")
+
+    intensity_guide = {
+        1: "MINIMAL changes: only reorder sections and skills.",
+        2: "CONSERVATIVE: reorder + tweak 1-2 words per bullet for JD keywords.",
+        3: "BALANCED: reorder, rewrite bullets to naturally include JD keywords.",
+        4: "AGGRESSIVE: significantly rewrite bullets to maximize JD keyword matches.",
+        5: "FULL REWRITE: completely rewrite everything optimized for this JD.",
+    }
+
+    answers_str = "\n".join(
+        f"- {skill}: {answer}" for skill, answer in answers.items()
+    ) or "No additional answers."
+
+    response = await pipeline.gemini.generate(
+        f"""Tailor this resume for the job description.
+
+INTENSITY LEVEL: {intensity}/5 — {intensity_guide[intensity]}
+
+JOB DESCRIPTION:
+{jd_text}
+
+FULL ORIGINAL PROFILE:
+{json.dumps(profile)}
+
+GAP ANSWERS FROM CANDIDATE:
+{answers_str}
+
+Return the COMPLETE resume as JSON with ALL fields preserved.
+Include: name, title, email, phone, location, links, summary, experience, projects, skills, skillsText, education, certifications.
+Keep ALL entries. Reword based on intensity level. Do NOT fabricate.""",
+        system_instruction="You are an expert resume writer. Respond ONLY with valid JSON, no markdown fences.",
+    )
+
+    try:
+        resume = _extract_json(response)
+    except (json.JSONDecodeError, ValueError) as e:
+        raise HTTPException(status_code=500, detail=f"AI parsing failed: {e}")
+    return {"resume": resume}
