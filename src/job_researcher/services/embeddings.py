@@ -1,6 +1,6 @@
 import httpx
 
-CF_AI_URL = "https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/run/@cf/bge-base-en-v1.5"
+CF_AI_URL = "https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/run/@cf/baai/bge-base-en-v1.5"
 
 
 class EmbeddingsService:

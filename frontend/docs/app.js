@@ -194,6 +194,169 @@ async function analyze() {
   }
 }
 
+// --- Agent flow (/analyze/agent) ---
+
+function profileToText(p) {
+  if (!p) return '';
+  const parts = [];
+  if (p.name) parts.push(p.name);
+  if (p.title) parts.push(p.title);
+  if (p.summary) parts.push('\nSummary:\n' + p.summary);
+  if (p.skills) parts.push('\nSkills:\n' + (Array.isArray(p.skills) ? p.skills.join(', ') : p.skillsText || ''));
+  if (p.experience?.length) {
+    parts.push('\nExperience:');
+    for (const e of p.experience) {
+      parts.push(`\n${e.role || ''} @ ${e.company || ''} (${e.startDate || ''} - ${e.endDate || ''})`);
+      (e.bullets || []).forEach(b => parts.push('- ' + b));
+    }
+  }
+  if (p.projects?.length) {
+    parts.push('\nProjects:');
+    for (const pr of p.projects) {
+      parts.push(`\n${pr.name || ''} — ${pr.tech || ''}`);
+      (pr.bullets || []).forEach(b => parts.push('- ' + b));
+    }
+  }
+  if (p.education?.length) {
+    parts.push('\nEducation:');
+    for (const ed of p.education) parts.push(`${ed.degree || ''} @ ${ed.institution || ''} (${ed.year || ''})`);
+  }
+  return parts.join('\n');
+}
+
+async function ensureResumeOnBackend() {
+  const status = await fetch(API + '/resume').then(r => r.json());
+  if (status.resume_loaded) return true;
+
+  const profile = loadProfile();
+  if (!profile) return false;
+
+  const text = profileToText(profile);
+  const fd = new FormData();
+  fd.append('file', new Blob([text], { type: 'text/plain' }), 'resume.txt');
+  const res = await fetch(API + '/resume/upload', { method: 'POST', body: fd });
+  if (!res.ok) throw new Error('resume upload failed: ' + res.status);
+  return true;
+}
+
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function renderAgentResult(data) {
+  const v = data.verdict;
+  const plan = data.trace?.plan;
+  const executed = data.trace?.executed || [];
+  const meta = data.metadata || {};
+
+  // Verdict — typeset ruling
+  msg(`
+    <div class="verdict">
+      <div class="verdict-head">
+        <h3 class="verdict-title"><em>${esc(v.job_title)}</em><br>at ${esc(v.company)}</h3>
+        <div class="verdict-score">${v.match_score}<small>out of 100</small></div>
+      </div>
+      <div class="verdict-badges">
+        <span class="badge ${v.match_tier.toLowerCase()}">${esc(v.match_tier.replace('_', ' '))}</span>
+        <span class="badge ${v.recommendation.toLowerCase()}">${esc(v.recommendation)}</span>
+      </div>
+      <p class="verdict-reason">${esc(v.reasoning)}</p>
+      <div class="verdict-grid">
+        ${v.strengths?.length ? `
+          <div class="verdict-col strengths">
+            <h4>Strengths</h4>
+            <ul>${v.strengths.map(s => `<li>${esc(s)}</li>`).join('')}</ul>
+          </div>` : ''}
+        ${v.gaps?.length ? `
+          <div class="verdict-col gaps">
+            <h4>Gaps</h4>
+            <ul>${v.gaps.map(s => `<li>${esc(s)}</li>`).join('')}</ul>
+          </div>` : ''}
+        ${v.application_tips?.length ? `
+          <div class="verdict-col tips">
+            <h4>Application tips</h4>
+            <ul>${v.application_tips.map(s => `<li>${esc(s)}</li>`).join('')}</ul>
+          </div>` : ''}
+      </div>
+    </div>
+  `, 'ai', 'The ruling');
+
+  // Plan — typeset as a research plan
+  if (plan) {
+    msg(`
+      <div class="plan">
+        <p class="plan-goal">“${esc(plan.goal)}”</p>
+        <ol>
+          ${plan.steps.map(s => `
+            <li>
+              <code>${esc(s.tool)}</code>
+              <span class="plan-reason">— ${esc(s.reason)}</span>
+            </li>`).join('')}
+        </ol>
+      </div>
+    `, 'ai', "The agent's plan");
+  }
+
+  // Trace — ledger-style
+  if (executed.length) {
+    const rows = executed.map(e => `
+      <tr>
+        <td>${esc(e.tool)}</td>
+        <td><span class="trace-status status-${esc(e.status)}">${esc(e.status)}</span></td>
+        <td>${esc(e.elapsed_s)}s</td>
+        <td>${esc(e.summary || e.error || '')}</td>
+      </tr>`).join('');
+    msg(`
+      <div class="trace">
+        <table class="trace-table">
+          <thead><tr><th>Tool</th><th>Status</th><th>Elapsed</th><th>Result</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+        <p class="trace-foot">
+          ${meta.llm_calls || 0} LLM calls<span class="dot-sep">·</span>
+          ${meta.tokens_used?.input || 0} in / ${meta.tokens_used?.output || 0} out tokens<span class="dot-sep">·</span>
+          $${(meta.estimated_cost_usd || 0).toFixed(4)}<span class="dot-sep">·</span>
+          ${meta.analysis_time_seconds}s wall time
+        </p>
+      </div>
+    `, 'ai', 'Execution ledger');
+  }
+}
+
+async function runAgent() {
+  const input = urlInput.value.trim();
+  if (!input) return;
+  if (!/^https?:\/\//.test(input)) {
+    msg('Agent flow requires a URL (fetches the JD itself).', 'sys');
+    return;
+  }
+
+  msg(`Agent analyzing: ${input}`, 'user');
+  loading();
+  try {
+    const ready = await ensureResumeOnBackend();
+    if (!ready) {
+      stopLoading();
+      msg('No resume in backend. Upload one via Profile first.', 'sys');
+      profileModal.classList.add('on');
+      return;
+    }
+
+    const res = await fetch(API + '/analyze/agent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ job_url: input }),
+    });
+    const data = await res.json();
+    stopLoading();
+    if (!res.ok) throw new Error(data.detail || data.error || 'agent failed');
+    renderAgentResult(data);
+  } catch (e) {
+    stopLoading();
+    msg('Agent error: ' + e.message, 'sys');
+  }
+}
+
 function askNextQuestion() {
   const g = session.gaps[session.currentIdx];
   msg(`<span class="q-counter">Q${session.currentIdx + 1} of ${session.gaps.length}</span><br>
@@ -588,6 +751,7 @@ parseBtn.onclick = parseResume;
 
 $('#analyzeBtn').onclick = analyze;
 urlInput.onkeydown = (e) => { if (e.key === 'Enter') analyze(); };
+$('#agentBtn').onclick = runAgent;
 $('#sendBtn').onclick = sendAnswer;
 chatInput.onkeydown = (e) => { if (e.key === 'Enter') sendAnswer(); };
 
@@ -616,6 +780,39 @@ profileForm.onsubmit = (e) => {
 $('#addExp').onclick = () => addExpCard();
 $('#addProj').onclick = () => addProjCard();
 $('#addEdu').onclick = () => addEduCard();
+
+// Hero profile link
+$('#heroProfileLink')?.addEventListener('click', () => {
+  const p = loadProfile();
+  if (p) { fillForm(p); showEditForm(); } else { showUploadZone(); }
+  profileModal.classList.add('on');
+});
+
+// Theme toggle — persisted
+const themeBtn = $('#themeBtn');
+const savedTheme = localStorage.getItem('theme');
+if (savedTheme) document.documentElement.setAttribute('data-theme', savedTheme);
+themeBtn?.addEventListener('click', () => {
+  const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+  themeBtn.textContent = next === 'dark' ? '☀' : '◐';
+});
+if (document.documentElement.getAttribute('data-theme') === 'dark') themeBtn.textContent = '☀';
+
+// Update input hint when profile exists
+function refreshInputHint() {
+  const hint = $('#inputHint');
+  if (!hint) return;
+  if (loadProfile()) {
+    hint.classList.add('ready');
+    hint.innerHTML = '<span class="dot"></span>Resume loaded — the agent will score similarity against job requirements.';
+  }
+}
+refreshInputHint();
+// Refresh hint after profile save
+const origSaveProfile = saveProfile;
+saveProfile = function (p) { origSaveProfile(p); refreshInputHint(); };
 
 // Init
 if (!loadProfile()) {

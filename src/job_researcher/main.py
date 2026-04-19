@@ -1,10 +1,15 @@
-from fastapi import FastAPI, HTTPException, UploadFile
+from fastapi import FastAPI, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
 from pypdf import PdfReader
 import io
+import logging
+import traceback
+
+logger = logging.getLogger("job_researcher")
 
 from job_researcher.models import (
+    AgentAnalyzeResponse,
     AnalyzeRequest,
     AnalyzeResponse,
     ResumeStatus,
@@ -21,7 +26,21 @@ app.add_middleware(
     allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    logger.exception("unhandled error on %s %s", request.method, request.url.path)
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": f"{type(exc).__name__}: {exc}",
+            "path": request.url.path,
+        },
+        headers={"Access-Control-Allow-Origin": "*"},
+    )
 
 _pipeline: Pipeline | None = None
 
@@ -72,6 +91,19 @@ async def analyze(request: AnalyzeRequest) -> AnalyzeResponse:
         )
 
     return await pipeline.analyze(str(request.job_url))
+
+
+@app.post("/analyze/agent")
+async def analyze_agent(request: AnalyzeRequest) -> AgentAnalyzeResponse:
+    pipeline = get_pipeline()
+
+    if not pipeline.resume_loaded:
+        raise HTTPException(
+            status_code=400,
+            detail="No resume uploaded. POST /resume/upload first.",
+        )
+
+    return await pipeline.analyze_agent(str(request.job_url))
 
 
 @app.post("/resume/tailor")

@@ -1,9 +1,12 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>JD Resume Tailor</title>
+  <title>Fieldnotes — an agent that reads jobs for you</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/pdfmake.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/vfs_fonts.min.js"></script>
@@ -11,91 +14,177 @@
 </head>
 <body>
   <div id="app">
-    <header class="top-bar">
-      <div class="logo">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-          <polyline points="14 2 14 8 20 8"/>
-          <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
-        </svg>
-        <span>JD Resume Tailor</span>
+
+    <!-- Masthead -->
+    <header class="mast">
+      <div class="mast-brand">
+        <span class="wordmark">Fieldnotes</span>
+        <span class="mast-sep">—</span>
+        <span class="mast-tag">vol. 01, an agent's reading room</span>
       </div>
-      <button class="btn-ghost" id="profileBtn">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
-        </svg>
-        Profile
-      </button>
+      <nav class="mast-nav">
+        <button class="link" id="themeBtn" aria-label="toggle theme">◐</button>
+        <button class="link" id="profileBtn">Your profile</button>
+      </nav>
     </header>
 
-    <div class="url-bar">
-      <input type="text" id="urlInput" placeholder="Paste job description URL or text..." autocomplete="off">
-      <button class="btn-primary" id="analyzeBtn">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
-        </svg>
-      </button>
-    </div>
+    <main class="page">
 
-    <div class="chat-area" id="chatArea">
-      <div class="welcome" id="welcome">
-        <p>Paste a job description URL above to get started.</p>
-        <p class="dim">I'll analyze the JD, ask a few honest questions, then generate a tailored resume PDF.</p>
+      <!-- Hero: the pitch, written like a thesis -->
+      <section class="hero">
+        <p class="eyebrow">No. 01 / The brief</p>
+        <h1 class="display">
+          An agent reads a job posting,
+          <span class="italic">cross-references your resume</span>,
+          and writes you a ruling —
+          <span class="italic">apply</span>, <span class="italic">consider</span>, or <span class="italic">skip</span>.
+        </h1>
+        <p class="lede">
+          You hand it a link. It fetches the page, parses requirements, researches the company,
+          scans their engineering footprint, embeds your resume against their asks, and returns a
+          typeset verdict with evidence. Planner, executor, synthesizer — decisions visible, costs shown.
+        </p>
+      </section>
+
+      <!-- The input — integrated, not a CTA -->
+      <section class="input-well">
+        <label class="input-label" for="urlInput">Paste a job URL</label>
+        <div class="input-row">
+          <input type="text" id="urlInput" placeholder="https://jobs.example.com/posting" autocomplete="off" spellcheck="false">
+          <div class="input-actions">
+            <button class="btn-hairline" id="analyzeBtn" title="Deterministic 5-step pipeline">
+              Classic
+            </button>
+            <button class="btn-solid" id="agentBtn" title="Planner → Executor → Synthesizer">
+              Run agent
+              <span class="btn-arrow">→</span>
+            </button>
+          </div>
+        </div>
+        <p class="input-hint" id="inputHint">
+          <span class="dot"></span>
+          Upload your resume first in
+          <button class="inline-link" id="heroProfileLink">Your profile</button>
+          to unlock the resume-vs-JD similarity score.
+        </p>
+      </section>
+
+      <!-- Method — the four tools, inline, not cards -->
+      <section class="method">
+        <p class="eyebrow">No. 02 / The method</p>
+        <ol class="method-list">
+          <li>
+            <span class="method-num">i.</span>
+            <div>
+              <strong>Fetch &amp; parse.</strong>
+              BeautifulSoup pulls the posting; Gemini extracts title, company, requirements, tech stack.
+            </div>
+          </li>
+          <li>
+            <span class="method-num">ii.</span>
+            <div>
+              <strong>Research.</strong>
+              Gemini with Google Search grounding assembles funding, size, culture, recent news.
+            </div>
+          </li>
+          <li>
+            <span class="method-num">iii.</span>
+            <div>
+              <strong>Inspect.</strong>
+              GitHub's public API maps the company's engineering footprint — languages, notable repos.
+            </div>
+          </li>
+          <li>
+            <span class="method-num">iv.</span>
+            <div>
+              <strong>Compare.</strong>
+              Your resume is chunked, embedded via Cloudflare BGE, cosine-scored per requirement.
+            </div>
+          </li>
+          <li>
+            <span class="method-num">v.</span>
+            <div>
+              <strong>Synthesise.</strong>
+              A high-thinking verdict call produces the ruling with strengths, gaps, and tips.
+            </div>
+          </li>
+        </ol>
+      </section>
+
+      <!-- Working space — populates as agent runs -->
+      <section class="workspace" id="chatArea">
+        <div class="welcome" id="welcome">
+          <p class="welcome-note">Awaiting a link.</p>
+          <p class="welcome-dim">The agent will write here.</p>
+        </div>
+      </section>
+
+      <!-- Chat input for Q&A flow (hidden until tailor session active) -->
+      <section class="chat-input-bar" id="chatInputBar" style="display:none">
+        <input type="text" id="chatInput" placeholder="Your answer…" autocomplete="off">
+        <button class="btn-solid" id="sendBtn">Send <span class="btn-arrow">→</span></button>
+      </section>
+
+    </main>
+
+    <!-- Colophon -->
+    <footer class="colophon">
+      <div class="col">
+        <span class="col-label">Set in</span>
+        <span>Instrument Serif · Instrument Sans · JetBrains Mono</span>
       </div>
-    </div>
-
-    <div class="chat-input-bar" id="chatInputBar" style="display:none">
-      <input type="text" id="chatInput" placeholder="Type your answer..." autocomplete="off">
-      <button class="btn-primary" id="sendBtn">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
-        </svg>
-      </button>
-    </div>
+      <div class="col">
+        <span class="col-label">Built with</span>
+        <span>FastAPI · Gemini · Cloudflare BGE embeddings</span>
+      </div>
+      <div class="col">
+        <span class="col-label">Source</span>
+        <span>— a portfolio piece by Mangesh Bide</span>
+      </div>
+    </footer>
   </div>
 
   <!-- Profile Modal -->
   <div class="overlay" id="profileModal">
     <div class="modal">
       <div class="modal-head">
-        <h2>Your Profile</h2>
-        <button class="btn-ghost close-btn" id="closeModal">&times;</button>
+        <div>
+          <p class="eyebrow">Your profile</p>
+          <h2 class="modal-title">Tell the agent who it's representing</h2>
+        </div>
+        <button class="close-btn" id="closeModal" aria-label="close">×</button>
       </div>
       <div class="modal-body">
-        <!-- Upload Zone (shown first) -->
+
         <div id="uploadZone">
           <label class="drop-zone" id="dropZone" for="resumeFile">
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-              <polyline points="14 2 14 8 20 8"/>
-            </svg>
-            <p>Drop your resume PDF here</p>
-            <p class="dim">or click to browse</p>
+            <span class="drop-mono">./resume.pdf</span>
+            <p class="drop-title">Drop your PDF</p>
+            <p class="drop-sub">or click to browse</p>
             <input type="file" id="resumeFile" accept=".pdf,.txt" style="display:none">
           </label>
-          <div class="or-divider"><span>or paste resume text</span></div>
-          <textarea id="resumeText" rows="6" placeholder="Paste your resume content here..." class="paste-area"></textarea>
-          <button class="btn-primary btn-full" id="parseBtn">Parse with AI</button>
+          <div class="or-divider"><span>or paste text</span></div>
+          <textarea id="resumeText" rows="6" placeholder="Copy-paste the full resume contents here…" class="paste-area"></textarea>
+          <button class="btn-solid btn-full" id="parseBtn">Parse with AI <span class="btn-arrow">→</span></button>
           <div id="parseStatus" class="parse-status"></div>
         </div>
 
-        <!-- Edit Form (shown after parse, or for manual edits) -->
         <form id="profileForm" style="display:none">
           <div class="parsed-banner" id="parsedBanner">
-            <span>Parsed from your resume</span>
+            <span>✓ Parsed. Review and edit below.</span>
             <button type="button" class="btn-sm" id="reuploadBtn">Re-upload</button>
           </div>
           <div class="row">
-            <div class="field"><label>Full Name</label><input name="name" required placeholder="John Doe"></div>
+            <div class="field"><label>Full name</label><input name="name" required placeholder="Mangesh Bide"></div>
             <div class="field"><label>Title</label><input name="title" required placeholder="Software Engineer"></div>
           </div>
           <div class="row">
-            <div class="field"><label>Email</label><input name="email" placeholder="john@example.com"></div>
-            <div class="field"><label>Phone</label><input name="phone" placeholder="+1 555-0123"></div>
+            <div class="field"><label>Email</label><input name="email" placeholder="you@example.com"></div>
+            <div class="field"><label>Phone</label><input name="phone" placeholder="+91 …"></div>
           </div>
-          <div class="field"><label>Location</label><input name="location" placeholder="San Francisco, CA"></div>
-          <div class="field"><label>Summary</label><textarea name="summary" rows="3" placeholder="Brief professional summary..."></textarea></div>
-          <div class="field"><label>Skills <span class="dim">(comma-separated)</span></label><textarea name="skills" rows="2" placeholder="JavaScript, Python, AWS..."></textarea></div>
+          <div class="field"><label>Location</label><input name="location" placeholder="City, Country"></div>
+          <div class="field"><label>Summary</label><textarea name="summary" rows="3" placeholder="Two or three sentences…"></textarea></div>
+          <div class="field"><label>Skills <span class="field-hint">comma-separated</span></label><textarea name="skills" rows="2" placeholder="Python, FastAPI, PostgreSQL…"></textarea></div>
 
           <div class="section-head"><span>Experience</span><button type="button" class="btn-sm" id="addExp">+ Add</button></div>
           <div id="expList"></div>
@@ -106,10 +195,10 @@
           <div class="section-head"><span>Education</span><button type="button" class="btn-sm" id="addEdu">+ Add</button></div>
           <div id="eduList"></div>
 
-          <div class="field"><label>Certifications <span class="dim">(comma-separated)</span></label><textarea name="certs" rows="2" placeholder="AWS SA, CKA..."></textarea></div>
-          <div class="field"><label>Links <span class="dim">(one per line: Label | URL)</span></label><textarea name="links" rows="2" placeholder="LinkedIn | https://..."></textarea></div>
+          <div class="field"><label>Certifications <span class="field-hint">comma-separated</span></label><textarea name="certs" rows="2"></textarea></div>
+          <div class="field"><label>Links <span class="field-hint">one per line — Label | URL</span></label><textarea name="links" rows="2" placeholder="LinkedIn | https://…"></textarea></div>
 
-          <button type="submit" class="btn-primary btn-full">Save Profile</button>
+          <button type="submit" class="btn-solid btn-full">Save profile</button>
         </form>
       </div>
     </div>

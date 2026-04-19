@@ -6,7 +6,9 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from job_researcher.config import get_settings
+from job_researcher.agent import AnalyzeAgent
 from job_researcher.models import (
+    AgentAnalyzeResponse,
     AnalysisMetadata,
     AnalyzeResponse,
     JobDescription,
@@ -130,6 +132,17 @@ class Pipeline:
                 estimated_cost_usd=self.gemini.estimated_cost(),
             ),
         )
+
+    async def analyze_agent(self, job_url: str) -> AgentAnalyzeResponse:
+        agent = AnalyzeAgent(
+            gemini=self.gemini,
+            embeddings=self.embeddings,
+            github_token=self.github_token,
+            resume_chunks=self.resume_chunks,
+            resume_embeddings=self.resume_embeddings,
+            resume_loaded=self.resume_loaded,
+        )
+        return await agent.run(job_url)
 
     async def tailor_start(self, job_url: str) -> TailorStartResponse:
         raw_text = await fetch_job_page(job_url)

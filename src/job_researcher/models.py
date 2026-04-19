@@ -80,6 +80,37 @@ class AnalyzeResponse(BaseModel):
     metadata: AnalysisMetadata
 
 
+class AgentToolName(StrEnum):
+    FETCH_AND_PARSE_JD = "fetch_and_parse_jd"
+    RESEARCH_COMPANY = "research_company"
+    SCAN_GITHUB = "scan_github"
+    COMPARE_RESUME = "compare_resume"
+
+
+class PlannedStep(BaseModel):
+    tool: AgentToolName
+    reason: str
+    depends_on: list[str] = []
+
+
+class AgentPlan(BaseModel):
+    goal: str
+    steps: list[PlannedStep]
+
+
+class AgentTrace(BaseModel):
+    plan: AgentPlan
+    executed: list[dict]
+    reflections: list[str] = []
+
+
+class AgentAnalyzeResponse(BaseModel):
+    status: str
+    verdict: Verdict
+    trace: AgentTrace
+    metadata: AnalysisMetadata
+
+
 class ResumeStatus(BaseModel):
     resume_loaded: bool
     chunks: int
