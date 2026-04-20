@@ -13,6 +13,7 @@ from job_researcher.models import (
     AgentAnalyzeResponse,
     AnalysisMetadata,
     AnalyzeResponse,
+    InterviewPrepReport,
     JobDescription,
     Resume,
     ResumeMatch,
@@ -30,6 +31,7 @@ from job_researcher.steps.resume_comparator import (
     chunk_text,
     compare_resume,
 )
+from job_researcher.steps.interview_prepper import prepare_interview
 from job_researcher.steps.question_generator import generate_questions
 from job_researcher.steps.resume_tailor import tailor_resume
 from job_researcher.templates.minimal import render_minimal
@@ -157,6 +159,11 @@ class Pipeline:
             resume_loaded=self.resume_loaded,
         )
         return await agent.run(job_url)
+
+    async def interview_prep(self, job_url: str) -> InterviewPrepReport:
+        raw_text = await fetch_job_page(job_url)
+        jd = await self._parse_jd_cached(raw_text)
+        return await prepare_interview(self.gemini, jd)
 
     async def tailor_start(self, job_url: str) -> TailorStartResponse:
         raw_text = await fetch_job_page(job_url)

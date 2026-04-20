@@ -1,7 +1,7 @@
 const API = window.location.hostname === 'localhost' ? 'http://localhost:8000' : 'https://jd-resume-tailor.mangeshbide1.workers.dev';
 
 // State
-let session = { jdText: '', gaps: [], currentIdx: 0, answers: {} };
+let session = { jdText: '', gaps: [], currentIdx: 0, answers: {}, lastAnalyzedUrl: '' };
 
 // DOM refs
 const $ = (s) => document.querySelector(s);
@@ -321,6 +321,77 @@ function renderAgentResult(data) {
       </div>
     `, 'ai', 'Execution ledger');
   }
+
+  // User-choice next step: surface interview-prep button post-verdict.
+  if (session.lastAnalyzedUrl) {
+    msg(`
+      <div class="next-step">
+        <p>Want to prep for the interview for this role?</p>
+        <button class="btn-solid" id="interviewPrepBtn">Prep for interview <span class="btn-arrow">→</span></button>
+      </div>
+    `, 'ai', 'Next step');
+    const btn = document.getElementById('interviewPrepBtn');
+    if (btn) btn.onclick = () => runInterviewPrep(session.lastAnalyzedUrl);
+  }
+}
+
+async function runInterviewPrep(jobUrl) {
+  if (!jobUrl) { msg('No analyzed URL in session.', 'sys'); return; }
+  msg('Researching interview questions & prep plan...', 'user');
+  loading();
+  try {
+    const res = await fetch(API + '/interview-prep', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ job_url: jobUrl }),
+    });
+    const data = await res.json();
+    stopLoading();
+    if (!res.ok) throw new Error(data.detail || data.error || 'interview-prep failed');
+    renderInterviewPrep(data);
+  } catch (e) {
+    stopLoading();
+    msg('Interview prep error: ' + e.message, 'sys');
+  }
+}
+
+function renderInterviewPrep(data) {
+  const buckets = {};
+  (data.questions || []).forEach(q => {
+    (buckets[q.category] = buckets[q.category] || []).push(q);
+  });
+  const labels = {
+    behavioral: 'Behavioral',
+    technical: 'Technical',
+    system_design: 'System design',
+    company_specific: 'Company-specific',
+    coding: 'Coding',
+  };
+  const sections = Object.keys(buckets).map(cat => `
+    <div class="prep-cat">
+      <h4>${esc(labels[cat] || cat)}</h4>
+      <ol>
+        ${buckets[cat].map(q => `
+          <li>
+            <p class="prep-q">${esc(q.question)}</p>
+            <p class="prep-strat"><strong>How to prep:</strong> ${esc(q.prep_strategy)}</p>
+            ${q.resource_hint ? `<p class="prep-hint"><em>${esc(q.resource_hint)}</em></p>` : ''}
+          </li>`).join('')}
+      </ol>
+    </div>`).join('');
+
+  msg(`
+    <div class="interview-prep">
+      <h3 class="prep-title"><em>${esc(data.role)}</em> at ${esc(data.company)}</h3>
+      <p class="prep-overview">${esc(data.overview)}</p>
+      ${sections}
+      ${data.study_plan?.length ? `
+        <div class="prep-plan">
+          <h4>One-week study plan</h4>
+          <ol>${data.study_plan.map(s => `<li>${esc(s)}</li>`).join('')}</ol>
+        </div>` : ''}
+    </div>
+  `, 'ai', 'Interview prep');
 }
 
 async function runAgent() {
@@ -333,6 +404,7 @@ async function runAgent() {
 
   msg(`Agent analyzing: ${input}`, 'user');
   loading();
+  session.lastAnalyzedUrl = input;
   try {
     const ready = await ensureResumeOnBackend();
     if (!ready) {

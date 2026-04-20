@@ -12,6 +12,8 @@ from job_researcher.models import (
     AgentAnalyzeResponse,
     AnalyzeRequest,
     AnalyzeResponse,
+    InterviewPrepReport,
+    InterviewPrepRequest,
     ResumeStatus,
     TailorStartRequest,
     TailorStartResponse,
@@ -104,6 +106,12 @@ async def analyze_agent(request: AnalyzeRequest) -> AgentAnalyzeResponse:
         )
 
     return await pipeline.analyze_agent(str(request.job_url))
+
+
+@app.post("/interview-prep")
+async def interview_prep(request: InterviewPrepRequest) -> InterviewPrepReport:
+    pipeline = get_pipeline()
+    return await pipeline.interview_prep(str(request.job_url))
 
 
 @app.post("/resume/tailor")

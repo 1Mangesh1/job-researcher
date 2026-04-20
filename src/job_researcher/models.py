@@ -203,3 +203,30 @@ class TailorGenerateRequest(BaseModel):
     session_id: str
     answers: dict[str, str]
     template_id: str = "minimal"
+
+
+class InterviewCategory(StrEnum):
+    BEHAVIORAL = "behavioral"
+    TECHNICAL = "technical"
+    SYSTEM_DESIGN = "system_design"
+    COMPANY_SPECIFIC = "company_specific"
+    CODING = "coding"
+
+
+class InterviewQuestion(BaseModel):
+    question: str
+    category: InterviewCategory
+    prep_strategy: str
+    resource_hint: str = ""
+
+
+class InterviewPrepReport(BaseModel):
+    role: str
+    company: str
+    overview: str
+    questions: list[InterviewQuestion]
+    study_plan: list[str]
+
+
+class InterviewPrepRequest(BaseModel):
+    job_url: HttpUrl
