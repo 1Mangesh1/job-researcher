@@ -3,15 +3,7 @@ import json
 from job_researcher.models import ATSReport, Resume
 from job_researcher.services.gemini import GeminiService
 
-SYSTEM_PROMPT = """You are an ATS (Applicant Tracking System) scoring expert. Compare a resume against a job description and evaluate keyword match, relevance, and fit.
-
-Return a JSON object with:
-- score: integer 0-100 (overall ATS compatibility score)
-- matched_keywords: list of keywords/phrases from the JD found in the resume
-- missing_keywords: list of important JD keywords not present in the resume
-- suggestions: list of actionable improvements to increase the ATS score
-
-Be specific and practical in suggestions."""
+SYSTEM_PROMPT = """You are an ATS (Applicant Tracking System) scoring expert. Compare resume vs JD for keyword match, relevance, and fit. Be specific and practical in suggestions."""
 
 USER_PROMPT_TEMPLATE = """## Resume
 Name: {name}
@@ -23,7 +15,7 @@ Experience:
 ## Job Description
 {jd_text}
 
-Score this resume against the job description. Return JSON only."""
+Score this resume against the job description."""
 
 
 async def score_resume(
@@ -50,7 +42,9 @@ async def score_resume(
     response = await gemini.generate(
         prompt,
         system_instruction=SYSTEM_PROMPT,
-        thinking_budget=1024,
+        response_schema=ATSReport,
+        thinking_budget=0,
+        model="gemini-2.5-flash-lite",
     )
 
     data = json.loads(response)

@@ -206,8 +206,7 @@ class AnalyzeAgent:
 
     async def run(self, job_url: str) -> AgentAnalyzeResponse:
         start = time.time()
-        self.gemini.total_input_tokens = 0
-        self.gemini.total_output_tokens = 0
+        self.gemini.usage_by_model = {}
         self.gemini.call_count = 0
 
         goal = f"Produce a hiring-fit verdict for the candidate against {job_url}."

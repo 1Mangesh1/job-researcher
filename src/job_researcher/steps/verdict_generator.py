@@ -40,18 +40,7 @@ Overall similarity: {overall_similarity}
 Requirement matches:
 {match_details}
 
-## Instructions
-Produce a verdict with:
-- match_score (0-100)
-- match_tier (STRONG_MATCH/MODERATE_MATCH/WEAK_MATCH/NO_MATCH)
-- strengths (list of specific strengths with evidence)
-- gaps (list of specific gaps)
-- company_snapshot (use company research data)
-- recommendation (APPLY/CONSIDER/SKIP)
-- reasoning (2-3 sentences synthesizing the analysis)
-- application_tips (actionable advice if applying)
-
-Respond with JSON only."""
+Populate company_snapshot from the Company Research section. Reasoning: 2-3 sentences."""
 
 
 async def generate_verdict(
@@ -78,7 +67,7 @@ async def generate_verdict(
         prompt,
         system_instruction=SYSTEM_PROMPT,
         response_schema=Verdict,
-        thinking_budget=10240,
+        thinking_budget=-1,
     )
 
     data = json.loads(response)

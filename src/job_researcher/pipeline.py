@@ -1,3 +1,5 @@
+import hashlib
+import logging
 import re
 import time
 import uuid
@@ -33,6 +35,8 @@ from job_researcher.steps.resume_tailor import tailor_resume
 from job_researcher.templates.minimal import render_minimal
 from job_researcher.steps.verdict_generator import generate_verdict
 
+logger = logging.getLogger(__name__)
+
 
 @dataclass
 class TailorSession:
@@ -58,6 +62,16 @@ class Pipeline:
         self._resume_cache: str | None = None
         self.resume_text: str = ""
         self._tailor_sessions: dict[str, TailorSession] = {}
+        self._jd_parse_cache: dict[str, JobDescription] = {}
+
+    async def _parse_jd_cached(self, jd_text: str) -> JobDescription:
+        key = hashlib.sha256(jd_text.encode("utf-8")).hexdigest()
+        cached = self._jd_parse_cache.get(key)
+        if cached is not None:
+            return cached
+        parsed = await parse_job_description(self.gemini, jd_text)
+        self._jd_parse_cache[key] = parsed
+        return parsed
 
     async def load_resume(self, text: str) -> ResumeStatus:
         self.resume_text = text
@@ -67,14 +81,15 @@ class Pipeline:
         self.resume_loaded = True
         self.resume_last_updated = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
-        # Cache resume text for Gemini (saves tokens on repeated analyses)
+        # Cache resume text for Gemini (saves tokens on repeated analyses).
+        # Explicit cache requires ~1024+ tokens on 2.5 models.
         try:
             self._resume_cache = await self.gemini.create_cache(
                 contents=[f"Candidate Resume:\n\n{text}"],
                 display_name="resume-cache",
             )
-        except Exception:
-            # Caching is optional optimization — continue without it
+        except Exception as exc:
+            logger.warning("Gemini resume cache creation failed: %s", exc)
             self._resume_cache = None
 
         return self.get_resume_status()
@@ -88,13 +103,12 @@ class Pipeline:
 
     async def analyze(self, job_url: str) -> AnalyzeResponse:
         start = time.time()
-        self.gemini.total_input_tokens = 0
-        self.gemini.total_output_tokens = 0
+        self.gemini.usage_by_model = {}
         self.gemini.call_count = 0
 
         # Step 1: Fetch & Parse JD
         raw_text = await fetch_job_page(job_url)
-        jd = await parse_job_description(self.gemini, raw_text)
+        jd = await self._parse_jd_cached(raw_text)
 
         # Step 2: Company Research
         company = await research_company(self.gemini, jd.company)
@@ -146,7 +160,7 @@ class Pipeline:
 
     async def tailor_start(self, job_url: str) -> TailorStartResponse:
         raw_text = await fetch_job_page(job_url)
-        jd = await parse_job_description(self.gemini, raw_text)
+        jd = await self._parse_jd_cached(raw_text)
 
         questions = await generate_questions(self.gemini, jd, self.resume_text)
 
@@ -167,7 +181,11 @@ class Pipeline:
         session = self._tailor_sessions[session_id]  # Raises KeyError if not found
 
         tailored = await tailor_resume(
-            self.gemini, session.jd, session.resume_text, answers
+            self.gemini,
+            session.jd,
+            session.resume_text,
+            answers,
+            resume_cache=self._resume_cache,
         )
 
         pdf_bytes = render_minimal(tailored)

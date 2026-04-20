@@ -88,6 +88,6 @@ async def test_generate_verdict(sample_jd, sample_company, sample_github, sample
     assert result.match_tier == MatchTier.STRONG_MATCH
     assert result.recommendation == Recommendation.APPLY
 
-    # Verify high thinking budget was used
+    # Verdict uses dynamic thinking budget (-1)
     call_kwargs = mock_gemini.generate.call_args.kwargs
-    assert call_kwargs.get("thinking_budget", 0) >= 8192
+    assert call_kwargs.get("thinking_budget") == -1

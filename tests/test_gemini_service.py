@@ -15,6 +15,11 @@ def test_gemini_service_init(gemini_service):
 
 
 def test_gemini_service_tracks_usage(gemini_service):
-    assert gemini_service.total_input_tokens == 0
-    assert gemini_service.total_output_tokens == 0
+    assert gemini_service.usage_by_model == {}
     assert gemini_service.call_count == 0
+    assert gemini_service.get_usage() == {
+        "input": 0,
+        "output": 0,
+        "calls": 0,
+        "by_model": {},
+    }
