@@ -16,7 +16,7 @@ SAMPLE_EMBEDDING = [0.1] * 768  # bge-base-en-v1.5 outputs 768-dim vectors
 @respx.mock
 async def test_embeddings_service_embed():
     respx.post(
-        "https://api.cloudflare.com/client/v4/accounts/test-account/ai/run/@cf/bge-base-en-v1.5"
+        "https://api.cloudflare.com/client/v4/accounts/test-account/ai/run/@cf/baai/bge-base-en-v1.5"
     ).mock(
         return_value=httpx.Response(200, json={
             "success": True,
@@ -49,7 +49,7 @@ def test_chunk_text_handles_single_block():
 @respx.mock
 async def test_compare_resume():
     respx.post(
-        "https://api.cloudflare.com/client/v4/accounts/test-account/ai/run/@cf/bge-base-en-v1.5"
+        "https://api.cloudflare.com/client/v4/accounts/test-account/ai/run/@cf/baai/bge-base-en-v1.5"
     ).mock(
         return_value=httpx.Response(200, json={
             "success": True,
