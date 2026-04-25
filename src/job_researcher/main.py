@@ -1,6 +1,9 @@
+from pathlib import Path
+
 from fastapi import FastAPI, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
+from fastapi.staticfiles import StaticFiles
 from pypdf import PdfReader
 import io
 import logging
@@ -322,3 +325,8 @@ Keep ALL entries. Reword based on intensity level. Do NOT fabricate.""",
     except (json.JSONDecodeError, ValueError) as e:
         raise HTTPException(status_code=500, detail=f"AI parsing failed: {e}")
     return {"resume": resume}
+
+
+_frontend_dir = Path(__file__).resolve().parents[2] / "frontend" / "docs"
+if _frontend_dir.is_dir():
+    app.mount("/", StaticFiles(directory=str(_frontend_dir), html=True), name="frontend")

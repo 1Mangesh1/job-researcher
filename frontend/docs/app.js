@@ -1,4 +1,4 @@
-const API = window.location.hostname === 'localhost' ? 'http://localhost:8000' : 'https://jd-resume-tailor.mangeshbide1.workers.dev';
+const API = window.location.hostname === 'localhost' ? 'http://localhost:8000' : '';
 
 // State
 let session = { jdText: '', gaps: [], currentIdx: 0, answers: {}, lastAnalyzedUrl: '' };

@@ -1,3 +1,15 @@
+---
+title: Job Researcher
+emoji: 🔍
+colorFrom: blue
+colorTo: purple
+sdk: docker
+app_port: 7860
+pinned: false
+license: mit
+short_description: LLM job-fit analyzer + resume tailor
+---
+
 # Job Researcher
 
 LLM-powered pipeline that analyzes a job posting against your resume and returns a verdict (APPLY / CONSIDER / SKIP) with evidence. Ships with both a fixed **DAG** flow and an **agentic** flow (planner → tool executor → synthesizer) over the same step library.

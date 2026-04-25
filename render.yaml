@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: job-researcher
+    runtime: docker
+    plan: free
+    region: oregon
+    branch: main
+    healthCheckPath: /health
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: CF_ACCOUNT_ID
+        sync: false
+      - key: CF_API_TOKEN
+        sync: false
+      - key: GITHUB_TOKEN
+        sync: false
