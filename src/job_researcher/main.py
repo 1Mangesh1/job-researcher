@@ -26,9 +26,14 @@ from job_researcher.pipeline import Pipeline
 
 app = FastAPI(title="Job Researcher", version="0.1.0")
 
+import os
+
+_default_origins = "http://localhost:3000,http://localhost:8000,https://job-researcher.onrender.com,https://fieldnotes.mangeshbide.tech"
+_allow_origins = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", _default_origins).split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_allow_origins,
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["*"],
