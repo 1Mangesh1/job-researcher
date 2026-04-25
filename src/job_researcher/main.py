@@ -180,6 +180,16 @@ async def api_parse_resume(body: dict):
     pipeline = get_pipeline()
     text = body.get("text", "")
 
+    # Frontend fallback: when browser PDF.js fails, it sends pdf_base64 instead.
+    if not text and body.get("pdf_base64"):
+        import base64
+        try:
+            pdf_bytes = base64.b64decode(body["pdf_base64"])
+            reader = PdfReader(io.BytesIO(pdf_bytes))
+            text = "\n".join((page.extract_text() or "") for page in reader.pages).strip()
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"PDF decode failed: {e}")
+
     if not text or len(text) < 20:
         raise HTTPException(status_code=400, detail="Resume text too short or missing.")
 
