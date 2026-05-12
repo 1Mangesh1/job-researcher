@@ -1,3 +1,13 @@
+---
+title: Job Researcher
+emoji: 🔍
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # Job Researcher · [fieldnotes.mangeshbide.tech](https://fieldnotes.mangeshbide.tech)
 
 LLM-powered pipeline that analyzes a job posting against your resume and returns a verdict (APPLY / CONSIDER / SKIP) with evidence. Ships with both a fixed **DAG** flow and an **agentic** flow (planner → tool executor → synthesizer) over the same step library.
